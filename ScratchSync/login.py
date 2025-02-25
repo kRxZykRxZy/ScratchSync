@@ -1,13 +1,5 @@
-try:
-    import requests
-    from bs4 import BeautifulSoup
-except ImportError:
-    import os
-    import subprocess
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "requests", "beautifulsoup4"])
-    import requests
-    from bs4 import BeautifulSoup
-
+import requests
+from bs4 import BeautifulSoup
 
 class ScratchLogin:
     def __init__(self):

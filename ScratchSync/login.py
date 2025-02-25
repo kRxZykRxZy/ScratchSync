@@ -1,54 +1,60 @@
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-import time
+try:
+    import requests
+    from bs4 import BeautifulSoup
+except ImportError:
+    import os
+    import subprocess
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "requests", "beautifulsoup4"])
+    import requests
+    from bs4 import BeautifulSoup
+
 
 class ScratchLogin:
-    def __init__(self, package_name):
-        self.package_name = package_name
+    def __init__(self):
+        self.session = requests.Session()
+        self.base_url = 'https://scratch.mit.edu'
 
-    def connect_and_login(self, username, password):
+    def connect_session(self, username, password):
+        if not username or not password:
+            raise ValueError("Username or password is missing")
+
         try:
-            if not username or not password:
-                raise ValueError("Username or password is missing")
+            # Step 1: Get the login page to scrape necessary CSRF token
+            login_url = f'{self.base_url}/login/'
+            response = self.session.get(login_url)
+            if response.status_code != 200:
+                print(f"Failed to access login page. Status code: {response.status_code}")
+                return
 
-            # Connect session with provided username and password
-            self.package_name.connect_session(username, password)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Step 2: Scrape CSRF token (it may be in an input field or meta tag)
+            csrf_token = soup.find('input', {'name': 'csrfmiddlewaretoken'}).get('value')
 
-            # Set up the web driver (using Chrome in this example)
-            driver = webdriver.Chrome()
+            if not csrf_token:
+                print("CSRF Token not found, cannot proceed with login.")
+                return
 
-            # Open the Scratch login page
-            driver.get('https://scratch.mit.edu/login/')
+            # Step 3: Prepare the login data to send
+            login_data = {
+                'username': username,
+                'password': password,
+                'csrfmiddlewaretoken': csrf_token
+            }
 
-            # Allow the page to load
-            time.sleep(3)
+            headers = {
+                'User-Agent': 'Mozilla/5.0',
+                'Referer': login_url
+            }
 
-            # Find username and password fields and login button
-            username_field = driver.find_element(By.NAME, 'username')
-            password_field = driver.find_element(By.NAME, 'password')
+            # Step 4: Send the login request
+            login_response = self.session.post(login_url, data=login_data, headers=headers)
 
-            # Enter the credentials
-            username_field.send_keys(username)
-            password_field.send_keys(password)
-            password_field.send_keys(Keys.RETURN)
-
-            # Allow time to log in
-            time.sleep(5)
-
-            print("Login successful!")
+            # Step 5: Check if login was successful (successful login redirects)
+            if login_response.url == self.base_url:
+                print("Login successful!")
+            else:
+                print("Login failed. Please check your credentials.")
 
         except Exception as e:
             print(f"An error occurred: {e}")
-
-        finally:
-            driver.quit()
-
-# Example usage
-if __name__ == "__main__":
-    import Package_name
-
-    scratch_login = ScratchLogin(Package_name)
-    username = input("Enter your username: ")
-    password = input("Enter your password: ")
-    scratch_login.connect_and_login(username, password)

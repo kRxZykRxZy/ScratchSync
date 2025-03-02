@@ -1,6 +1,7 @@
 # scratch_project.py
 
 import requests
+from .scratch_client import ScratchClient
 
 class ScratchProject:
     def __init__(self, client, project_id):

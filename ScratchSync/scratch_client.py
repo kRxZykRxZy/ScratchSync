@@ -24,7 +24,7 @@ class ScratchClient:
             'csrf_token': csrf_token  # If applicable
         }
 
-        login_action_url = "https://scratch.mit.edu/accounts/login/"
+        login_action_url = "https://scratch.mit.edu/login/"
         response = self.session.post(login_action_url, data=login_data)
 
         if response.status_code == 200 and "My Stuff" in response.text:

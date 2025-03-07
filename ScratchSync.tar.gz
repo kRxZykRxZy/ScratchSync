@@ -1,0 +1,8 @@
+ScratchSync/
+├── ScratchSync/
+│   ├── cloud_operations.py
+│   |── scratch_project.py
+|   └── scratch_client.py
+├── LICENSE
+├── README.md
+└── setup.py

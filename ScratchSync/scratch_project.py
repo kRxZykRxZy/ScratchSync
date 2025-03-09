@@ -14,7 +14,7 @@ class ScratchProject:
             if response.status_code == 200:
                 project = response.json()
                 return {
-                  "views": project.get("stats", {}).get("views", 0),
+                    "views": project.get("stats", {}).get("views", 0),
                     "loves": project.get("stats", {}).get("loves", 0),
                     "favorites": project.get("stats", {}).get("favorites", 0)
                 }

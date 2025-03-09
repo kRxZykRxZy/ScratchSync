@@ -1,61 +1,46 @@
-# scratch_client.py
-
 import requests
-import re
+import json
+from bs4 import BeautifulSoup
 
 class ScratchClient:
     def __init__(self):
-        self.session = requests.Session()
+        self.session = None
         self.logged_in = False
 
-    def _login(self, username, password):
-        login_url = "https://scratch.mit.edu/login/"
-        login_page = self.session.get(login_url)
-
-        if login_page.status_code != 200:
-            print("Failed to fetch the login page.")
+    def login(self, username, password):
+        """Logs into Scratch using the Session class."""
+        try:
+            self.session = Session.login_by_io(username, password)
+            if self.session and self.session.username:
+                print(f"Login successful as {self.session.username}")
+                self.logged_in = True
+                return True
+            else:
+                print("Login failed. Please check your credentials.")
+                return False
+        except Exception as e:
+            print(f"Error during login: {e}")
             return False
-
-        csrf_token = self._get_csrf_token(login_page.text)
-
-        login_data = {
-            'username': username,
-            'password': password,
-            'csrf_token': csrf_token  # If applicable
-        }
-
-        login_action_url = "https://scratch.mit.edu/login/"
-        response = self.session.post(login_action_url, data=login_data)
-
-        if response.status_code == 200 and "My Stuff" in response.text:
-            print("Login successful!")
-            self.logged_in = True
-            return True
-        else:
-            print("Login failed. Please check your credentials.")
-            return False
-
-    def _get_csrf_token(self, html_content):
-        match = re.search(r'csrf_token" value="([^"]+)', html_content)
-        if match:
-            return match.group(1)
-        return ''
 
     def check_logged_in(self):
-        if self.logged_in:
-            response = self.session.get("https://scratch.mit.edu/users/")
-            if response.status_code == 200 and "My Stuff" in response.text:
-                return True
+        """Checks if still logged in."""
+        if self.session:
+            return self.session.username is not None
         return False
 
     def logout(self):
-        self.session.cookies.clear()
-        self.logged_in = False
-        print("Logged out successfully.")
+        """Logs out from Scratch."""
+        if self.session:
+            self.session.logout()
+            self.logged_in = False
+            print("Logged out successfully.")
+        else:
+            print("No active session to log out from.")
 
     def get_user_profile(self, username):
+        """Fetches a user's Scratch profile."""
         try:
-            response = self.session.get(f"https://scratch.mit.edu/users/{username}")
+            response = requests.get(f"https://api.scratch.mit.edu/users/{username}")
             if response.status_code == 200:
                 return response.json()
             else:
@@ -63,3 +48,72 @@ class ScratchClient:
         except Exception as e:
             print(f"Error fetching user profile: {e}")
         return None
+
+
+# Assuming Session has this method from the original code you posted
+class Session:
+    @classmethod
+    def login_by_io(cls, username, password):
+        """Logs into Scratch and returns a Session object."""
+        login_url = "https://scratch.mit.edu/accounts/login/"
+        login_data = json.dumps({
+            "username": username,
+            "password": password
+        })
+
+        session = requests.Session()
+        response = session.post(
+            login_url,
+            data=login_data,
+            headers={
+                "X-Requested-With": "XMLHttpRequest",
+                "Content-Type": "application/json",
+                "Referer": "https://scratch.mit.edu/",
+                "Origin": "https://scratch.mit.edu/"
+            }
+        )
+
+        if response.status_code == 200:
+            try:
+                res_data = response.json()
+                if res_data.get('errors'):
+                    print(f"Login failed: {res_data['errors']}")
+                    return None
+
+                print("Login successful!")
+
+                # Extract session and CSRF tokens
+                session_id = session.cookies.get('scratchsessionsid')
+                csrf_token = session.cookies.get('scratchcsrftoken')
+
+                return cls(
+                    id=session_id,
+                    username=res_data["user"]["username"],
+                    xtoken=res_data["user"]["token"],
+                )
+            except json.JSONDecodeError:
+                print("Failed to parse login response.")
+        else:
+            print(f"Login failed with status code {response.status_code}.")
+        return None
+
+    def __init__(self, id, username, xtoken):
+        self.id = id
+        self.username = username
+        self.xtoken = xtoken
+        self._headers = {
+            "X-CSRFToken": "a",  # Scratch sets this to 'a' by default
+            "X-Token": self.xtoken
+        }
+        self._cookies = {
+            "scratchsessionsid": self.id,
+            "scratchcsrftoken": "a",
+        }
+
+    def logout(self):
+        """Logs out from the session."""
+        requests.post(
+            "https://scratch.mit.edu/accounts/logout/",
+            headers=self._headers,
+            cookies=self._cookies
+        )
